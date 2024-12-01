@@ -3,10 +3,7 @@ package dev.alexanderdiaz.athenabuild.command;
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
 import kong.unirest.Unirest;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
+import org.bukkit.*;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.incendo.cloud.annotations.Argument;
@@ -97,8 +94,22 @@ public final class UploadMap {
                         World world = creator.createWorld();
 
                         if (world != null) {
+                            player.sendMessage("");
                             player.sendMessage("§aWorld successfully uploaded and loaded!");
                             player.sendMessage("§aMap '" + mapName + "' loaded as world: " + worldName);
+
+                            // Teleport player to the new world
+                            player.teleport(world.getSpawnLocation());
+                            player.sendMessage("§aTeleported to the new world!");
+
+                            Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> {
+                                player.playSound(player.getLocation(), Sound.ANVIL_LAND, 1, 1);
+                            }, 2);
+
+                            player.sendMessage("");
+                            player.sendMessage("§aNow import the world to Multiverse:");
+                            player.sendMessage("§e/mv import " + worldName + " normal -g VoidGen");
+                            player.sendMessage("");
                         } else {
                             player.sendMessage("§cFailed to load world after upload!");
                         }
