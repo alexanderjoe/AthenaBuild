@@ -1,0 +1,48 @@
+# AthenaBuild Configuration
+
+# GitLab Configuration
+gitlab:
+  # Your GitLab personal access token or project access token
+  # Required scopes: api, read_repository
+  token: ""
+
+  # GitLab API URL (change if using self-hosted GitLab)
+  api_url: "https://gitlab.com/api/v4"
+
+  # Repository settings
+  organization: "avicus"
+  repository: "revival/maps"
+  default_branch: "master"
+
+  # Maps structure
+  maps:
+    # Root folder where all maps are stored
+    root_folder: ""
+    # Available map categories (used for organizing maps)
+    categories:
+      - "Arcade"
+      - "CTF"
+      - "CTW"
+      - "DTC"
+      - "DTM"
+      - "KOTH"
+      - "Mixed"
+      - "Nexus"
+      - "SkyWars"
+      - "TDM"
+      - "Walls"
+
+upload:
+  # Maximum size of world upload in MB
+  max_size: 500
+
+  # File types to ignore during extraction
+  ignored_files:
+    - ".git"
+    - ".gitignore"
+    - "README.md"
+    - "session.lock"
+    - "map.xml"
+    - "map.yml"
+    - "map.png"
+    - "map_banner.png"

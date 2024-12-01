@@ -1,0 +1,7 @@
+dev\alexanderdiaz\athenabuild\AthenaBuild.class
+dev\alexanderdiaz\athenabuild\command\DownloadMap.class
+dev\alexanderdiaz\athenabuild\command\UploadMap.class
+dev\alexanderdiaz\athenabuild\command\util\CommandGraph.class
+dev\alexanderdiaz\athenabuild\command\util\AthenaCommandGraph.class
+dev\alexanderdiaz\athenabuild\config\ConfigurationManager.class
+dev\alexanderdiaz\athenabuild\command\util\ParserBuilder.class

@@ -1,0 +1,3 @@
+name: AthenaBuild
+version: '${project.version}'
+main: dev.alexanderdiaz.athenabuild.AthenaBuild
