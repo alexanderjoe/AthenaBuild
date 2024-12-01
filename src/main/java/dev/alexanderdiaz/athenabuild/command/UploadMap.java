@@ -2,20 +2,25 @@ package dev.alexanderdiaz.athenabuild.command;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
+import dev.alexanderdiaz.athenabuild.service.MapSuggestionService;
 import kong.unirest.Unirest;
 import org.bukkit.*;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.incendo.cloud.annotation.specifier.Greedy;
 import org.incendo.cloud.annotations.Argument;
 import org.incendo.cloud.annotations.Command;
 import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
+import org.incendo.cloud.annotations.suggestion.Suggestions;
+import org.incendo.cloud.context.CommandContext;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -23,10 +28,12 @@ import java.util.zip.ZipInputStream;
 public final class UploadMap {
     private final AthenaBuild plugin;
     private final ConfigurationManager config;
+    private final MapSuggestionService mapSuggestionService;
 
     public UploadMap() {
         this.plugin = AthenaBuild.getInstance();
         this.config = plugin.getConfigManager();
+        this.mapSuggestionService = new MapSuggestionService(plugin);
     }
 
     @Command("upload <category> <mapName>")
@@ -34,8 +41,8 @@ public final class UploadMap {
     @Permission("athenabuild.upload")
     public void uploadMap(
             final CommandSender sender,
-            final @Argument("category") String category,
-            final @Argument("mapName") String mapName) {
+            final @Argument(value = "category", suggestions = "categories") String category,
+            final @Argument(value = "mapName", suggestions = "mapnames") @Greedy String mapName) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cOnly players can upload maps.");
             return;
@@ -54,23 +61,24 @@ public final class UploadMap {
             return;
         }
 
+        // Sanitize the world name for Bukkit
+        String worldName = sanitizeWorldName(mapName);
+
         // Check if world already exists
-        String worldName = mapName.toLowerCase().replace(" ", "_");
         if (Bukkit.getWorld(worldName) != null) {
             player.sendMessage("§cA world with that name already exists!");
             return;
         }
 
-
         // Build the folder path (e.g., "DTM/Quintus")
         String folderPath = buildFolderPath(category, mapName);
 
-        // Run the heavy operations async
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 player.sendMessage("§aStarting world upload process...");
                 player.sendMessage("§7Category: " + category);
                 player.sendMessage("§7Map: " + mapName);
+                player.sendMessage("§7World Name: " + worldName);
                 player.sendMessage("§7Path: " + folderPath);
 
                 // Download archive from GitLab
@@ -126,6 +134,33 @@ public final class UploadMap {
         });
     }
 
+    /**
+     * Sanitizes a map name to create a valid world name.
+     * Converts spaces and special characters to underscores and removes invalid characters.
+     */
+    private String sanitizeWorldName(String mapName) {
+        String sanitized = mapName.toLowerCase();
+
+        sanitized = sanitized.replaceAll("[\\s\\-']+", "_");
+        sanitized = sanitized.replaceAll("[^a-z0-9_]", "");
+        sanitized = sanitized.replaceAll("^_+|_+$", "");
+        sanitized = sanitized.replaceAll("_+", "_");
+
+        return sanitized;
+    }
+
+    @Suggestions("categories")
+    public List<String> suggestCategories() {
+        return config.getMapCategories();
+    }
+
+    @Suggestions("mapnames")
+    public List<String> suggestMaps(CommandContext<CommandSender> context) {
+        String category = context.get("category");
+        String currentInput = context.rawInput().lastRemainingToken().toLowerCase();
+        return mapSuggestionService.suggestMaps(category, currentInput);
+    }
+
     private String buildFolderPath(String category, String mapName) {
         String rootFolder = config.getMapsRootFolder();
         String basePath = rootFolder.isEmpty() ? "" : rootFolder + "/";
@@ -134,7 +169,7 @@ public final class UploadMap {
 
     private byte[] downloadFromGitLab(String folderPath) throws Exception {
         // URL encode the folderPath and project path
-        String encodedPath = folderPath.replace("/", "%2F");
+        String encodedPath = folderPath.replace(" ", "%20").replace("/", "%2F");
         String projectPath = (config.getGitLabOrganization() + "/" + config.getGitLabRepository())
                 .replace("/", "%2F");
 
@@ -176,7 +211,6 @@ public final class UploadMap {
                 }
 
                 // Get just the world files by removing category/mapname prefix
-                // e.g., "DTM/AlphaComplex/region/r.0.0.mca" -> "region/r.0.0.mca"
                 String[] parts = fileName.split("/");
                 if (parts.length > 2) {
                     fileName = String.join("/", Arrays.copyOfRange(parts, 2, parts.length));

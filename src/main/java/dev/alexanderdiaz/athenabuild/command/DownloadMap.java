@@ -68,7 +68,7 @@ public final class DownloadMap {
 
                 // Send success message
                 player.sendMessage("§aWorld download ready!");
-                player.sendMessage("§aDownload link (expires in 1 hour): §e" + downloadUrl);
+                player.sendMessage("§aDownload link (expires in 14 days or once used): §e" + downloadUrl);
 
             } catch (Exception e) {
                 player.sendMessage("§cError while processing world download: " + e.getMessage());
