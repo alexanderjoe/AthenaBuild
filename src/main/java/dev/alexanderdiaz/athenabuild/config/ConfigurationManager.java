@@ -10,15 +10,19 @@ public class ConfigurationManager {
     private final AthenaBuild plugin;
     private FileConfiguration config;
 
+    // GITLAB CONFIG
     private String gitlabToken;
     private String gitlabApiUrl;
     private String gitLabOrganization;
     private String gitLabRepository;
     private String defaultBranch;
+    // GITLAB -- MAPS CONFIG
     private String mapsRootFolder;
     private List<String> mapCategories;
+
+    // UPLOAD CONFIG
     private int maxUploadSize;
-    private String[] ignoredFiles;
+    private List<String> ignoredFiles;
 
     public ConfigurationManager(AthenaBuild plugin) {
         this.plugin = plugin;
@@ -52,23 +56,21 @@ public class ConfigurationManager {
 
     private void loadUploadConfig() {
         this.maxUploadSize = config.getInt("upload.max_size", 500);
-        this.ignoredFiles = config.getStringList("upload.ignored_files").toArray(new String[0]);
+        this.ignoredFiles = config.getStringList("upload.ignored_files");
+
+        // Add default ignored files if none configured
+        if (ignoredFiles.isEmpty()) {
+            ignoredFiles = Arrays.asList(".git", ".gitignore", "README.md", "session.lock", "map.xml", "map.yml", "map.png", "map_banner.png");
+        }
     }
 
+    // GITLAB GETTERS
     public String getGitlabToken() {
         return gitlabToken;
     }
 
     public String getGitlabApiUrl() {
         return gitlabApiUrl;
-    }
-
-    public int getMaxUploadSize() {
-        return maxUploadSize;
-    }
-
-    public String[] getIgnoredFiles() {
-        return ignoredFiles;
     }
 
     public String getGitLabOrganization() {
@@ -83,6 +85,7 @@ public class ConfigurationManager {
         return defaultBranch;
     }
 
+    // GITLAB -- MAPS GETTERS
     public String getMapsRootFolder() {
         return mapsRootFolder;
     }
@@ -91,6 +94,16 @@ public class ConfigurationManager {
         return mapCategories;
     }
 
+    // UPLOAD GETTERS
+    public int getMaxUploadSize() {
+        return maxUploadSize;
+    }
+
+    public List<String> getIgnoredFiles() {
+        return ignoredFiles;
+    }
+
+    // VALIDATORS
     public boolean isValidCategory(String category) {
         return mapCategories.contains(category);
     }

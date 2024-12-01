@@ -4,6 +4,7 @@ import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
 import kong.unirest.Unirest;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.command.CommandSender;
@@ -18,6 +19,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -44,7 +46,7 @@ public final class UploadMap {
 
         Player player = (Player) sender;
 
-        if(!config.isGitLabConfigured()) {
+        if (!config.isGitLabConfigured()) {
             player.sendMessage("§cGitLab is not configured. Please contact an administrator.");
             return;
         }
@@ -63,7 +65,7 @@ public final class UploadMap {
         }
 
 
-        // Build the folder path (e.g., "DTM/AlphaComplex")
+        // Build the folder path (e.g., "DTM/Quintus")
         String folderPath = buildFolderPath(category, mapName);
 
         // Run the heavy operations async
@@ -102,13 +104,13 @@ public final class UploadMap {
                         }
                     } catch (Exception e) {
                         player.sendMessage("§cError loading world: " + e.getMessage());
-                        e.printStackTrace();
+                        plugin.getLogger().log(Level.SEVERE, ChatColor.RED + "Error loading world", e);
                     }
                 });
 
             } catch (Exception e) {
                 player.sendMessage("§cError while processing world upload: " + e.getMessage());
-                e.printStackTrace();
+                plugin.getLogger().log(Level.SEVERE, ChatColor.RED + "Error while processing world upload", e);
             }
         });
     }
