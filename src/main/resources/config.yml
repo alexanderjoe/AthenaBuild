@@ -10,8 +10,8 @@ gitlab:
   api_url: "https://gitlab.com/api/v4"
 
   # Repository settings
-  organization: "avicus"
-  repository: "revival/maps"
+  organization: "your_org"
+  repository: "your/repo"
   default_branch: "master"
 
   # Maps structure
