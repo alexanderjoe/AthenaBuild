@@ -4,6 +4,10 @@ import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
 import dev.alexanderdiaz.athenabuild.service.MapSuggestionService;
 import kong.unirest.Unirest;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -20,6 +24,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.zip.ZipEntry;
@@ -112,12 +117,13 @@ public final class UploadMap {
 
                             Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> {
                                 player.playSound(player.getLocation(), Sound.ANVIL_LAND, 1, 1);
-                            }, 2);
+                            }, 5L);
 
-                            player.sendMessage("");
-                            player.sendMessage("§aNow import the world to Multiverse:");
-                            player.sendMessage("§e/mv import " + worldName + " normal -g VoidGen");
-                            player.sendMessage("");
+                            Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> {
+                                player.playSound(player.getLocation(), Sound.BURP, 1, 1);
+                            }, 30L);
+
+                            sendImportMessage(player, worldName);
                         } else {
                             player.sendMessage("§cFailed to load world after upload!");
                         }
@@ -132,6 +138,34 @@ public final class UploadMap {
                 plugin.getLogger().log(Level.SEVERE, ChatColor.RED + "Error while processing world upload", e);
             }
         });
+    }
+
+    private void sendImportMessage(Player player, String worldName) {
+        String importCommand = "/mv import " + worldName + " normal -g VoidGen";
+
+        TextComponent message = new TextComponent("");
+        message.addExtra("§8§l" + String.join("", Collections.nCopies(40, "-")) + "\n");
+        message.addExtra("§a§lWorld Upload Complete!\n");
+        message.addExtra("§7World Name: §f" + worldName + "\n");
+        message.addExtra("\n§7Click the button below to import the world:\n\n");
+
+        TextComponent commandComponent = new TextComponent(
+                "§8[§e§l⚡ Click to Import World§8]"
+        );
+        commandComponent.setClickEvent(new ClickEvent(
+                ClickEvent.Action.RUN_COMMAND,
+                importCommand
+        ));
+        commandComponent.setHoverEvent(new HoverEvent(
+                HoverEvent.Action.SHOW_TEXT,
+                new ComponentBuilder("§e§lClick to run:\n§7" + importCommand).create()
+        ));
+
+        message.addExtra(commandComponent);
+        message.addExtra("\n\n§7§oThis will import the world into Multiverse\n");
+        message.addExtra("§8§l" + String.join("", Collections.nCopies(40, "-")));
+
+        player.spigot().sendMessage(message);
     }
 
     /**

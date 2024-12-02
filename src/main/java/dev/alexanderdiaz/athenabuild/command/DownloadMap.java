@@ -4,7 +4,12 @@ import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import kong.unirest.HttpResponse;
 import kong.unirest.JsonNode;
 import kong.unirest.Unirest;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -16,6 +21,7 @@ import org.incendo.cloud.annotations.Permission;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -66,15 +72,41 @@ public final class DownloadMap {
                 // Clean up
                 tempZip.delete();
 
-                // Send success message
-                player.sendMessage("§aWorld download ready!");
-                player.sendMessage("§aDownload link (expires in 14 days or once used): §e" + downloadUrl);
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    player.playSound(player.getLocation(), Sound.NOTE_PIANO, 1, 1);
+                    sendDownloadMessage(player, downloadUrl);
+                });
 
             } catch (Exception e) {
                 player.sendMessage("§cError while processing world download: " + e.getMessage());
                 plugin.getLogger().log(Level.SEVERE, "Error while processing world download", e);
             }
         });
+    }
+
+    private void sendDownloadMessage(Player player, String downloadUrl) {
+        TextComponent message = new TextComponent("");
+        message.addExtra("§8§l" + String.join("", Collections.nCopies(40, "-")) + "\n");
+        message.addExtra("§a§lWorld Download Ready!\n");
+        message.addExtra("\n§7Click the button below to download your world:\n\n");
+
+        TextComponent downloadComponent = new TextComponent(
+                "§8[§e§l⚡ Click to Download World§8]"
+        );
+        downloadComponent.setClickEvent(new ClickEvent(
+                ClickEvent.Action.OPEN_URL,
+                downloadUrl
+        ));
+        downloadComponent.setHoverEvent(new HoverEvent(
+                HoverEvent.Action.SHOW_TEXT,
+                new ComponentBuilder("§e§lClick to open download link").create()
+        ));
+
+        message.addExtra(downloadComponent);
+        message.addExtra("\n\n§7§oThis link expires in 14 days or after one download\n");
+        message.addExtra("§8§l" + String.join("", Collections.nCopies(40, "-")));
+
+        player.spigot().sendMessage(message);
     }
 
     private void zipWorld(File worldFolder, File zipFile) throws IOException {
