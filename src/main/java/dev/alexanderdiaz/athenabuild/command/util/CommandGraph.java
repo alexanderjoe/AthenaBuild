@@ -8,6 +8,7 @@ import org.incendo.cloud.annotations.AnnotationParser;
 import org.incendo.cloud.execution.ExecutionCoordinator;
 import org.incendo.cloud.injection.ParameterInjector;
 import org.incendo.cloud.injection.ParameterInjectorRegistry;
+import org.incendo.cloud.minecraft.extras.MinecraftHelp;
 import org.incendo.cloud.paper.LegacyPaperCommandManager;
 import org.incendo.cloud.parser.ArgumentParser;
 import org.incendo.cloud.parser.ParserRegistry;
@@ -22,6 +23,7 @@ import java.util.function.Supplier;
 public abstract class CommandGraph<P extends Plugin> {
     protected P plugin;
     protected CommandManager<CommandSender> manager;
+    protected MinecraftHelp<CommandSender> minecraftHelp;
     protected AnnotationParser<CommandSender> annotationParser;
 
     protected ParameterInjectorRegistry<CommandSender> injectors;
@@ -38,6 +40,9 @@ public abstract class CommandGraph<P extends Plugin> {
 
         setupInjectors();
         setupParsers();
+
+        this.minecraftHelp = createHelp();
+
         registerCommands();
     }
 
@@ -60,6 +65,7 @@ public abstract class CommandGraph<P extends Plugin> {
         return new AnnotationParser<>(manager, CommandSender.class);
     }
 
+    protected abstract MinecraftHelp<CommandSender> createHelp();
 
     protected abstract void setupInjectors();
 

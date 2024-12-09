@@ -3,18 +3,23 @@ package dev.alexanderdiaz.athenabuild;
 import dev.alexanderdiaz.athenabuild.command.util.AthenaCommandGraph;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
 import dev.alexanderdiaz.athenabuild.listener.PlayerListener;
+import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
+import lombok.Getter;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 
 public final class AthenaBuild extends JavaPlugin {
+    @Getter
     private static AthenaBuild instance;
+    @Getter
     private ConfigurationManager configManager;
-
-    public static AthenaBuild getInstance() {
-        return instance;
-    }
+    private AthenaCommandGraph commandGraph;
 
     @Override
     public void onEnable() {
@@ -30,13 +35,22 @@ public final class AthenaBuild extends JavaPlugin {
     }
 
     @Override
+    public void onLoad() {
+        getLogger().info("AthenaBuild has been loaded!");
+    }
+
+    @Override
     public void onDisable() {
+        if (commandGraph != null) {
+            this.commandGraph.close();
+        }
+
         getLogger().log(Level.INFO, "AthenaBuild has been disabled!");
     }
 
     private void registerCommands() {
         try {
-            new AthenaCommandGraph(this);
+            this.commandGraph = new AthenaCommandGraph(this);
         } catch (Exception e) {
             getLogger().log(Level.SEVERE, "Exception while registering commands", e);
         }
@@ -61,7 +75,28 @@ public final class AthenaBuild extends JavaPlugin {
         }
     }
 
-    public ConfigurationManager getConfigManager() {
-        return configManager;
+    public List<String> athenaWorlds(boolean loadedOnly) {
+        List<String> worlds = new ArrayList<>();
+        File worldsDir = new File(Bukkit.getWorldContainer().getParentFile(), "athena_worlds");
+
+        if (worldsDir.exists() && worldsDir.isDirectory()) {
+            File[] files = worldsDir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        if (!loadedOnly) {
+                            worlds.add(file.getName());
+                        } else {
+                            WorldWrapper wrapper = new WorldWrapper(instance, file.getName());
+                            if (wrapper.isLoaded()) {
+                                worlds.add(file.getName());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return worlds;
     }
 }

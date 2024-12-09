@@ -1,6 +1,7 @@
 package dev.alexanderdiaz.athenabuild.config;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
+import lombok.Getter;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.Arrays;
@@ -11,17 +12,26 @@ public class ConfigurationManager {
     private FileConfiguration config;
 
     // GITLAB CONFIG
+    @Getter
     private String gitlabToken;
+    @Getter
     private String gitlabApiUrl;
+    @Getter
     private String gitLabOrganization;
+    @Getter
     private String gitLabRepository;
+    @Getter
     private String defaultBranch;
     // GITLAB -- MAPS CONFIG
+    @Getter
     private String mapsRootFolder;
+    @Getter
     private List<String> mapCategories;
 
     // UPLOAD CONFIG
+    @Getter
     private int maxUploadSize;
+    @Getter
     private List<String> ignoredFiles;
 
     public ConfigurationManager(AthenaBuild plugin) {
@@ -62,45 +72,6 @@ public class ConfigurationManager {
         if (ignoredFiles.isEmpty()) {
             ignoredFiles = Arrays.asList(".git", ".gitignore", "README.md", "session.lock", "map.xml", "map.yml", "map.png", "map_banner.png");
         }
-    }
-
-    // GITLAB GETTERS
-    public String getGitlabToken() {
-        return gitlabToken;
-    }
-
-    public String getGitlabApiUrl() {
-        return gitlabApiUrl;
-    }
-
-    public String getGitLabOrganization() {
-        return gitLabOrganization;
-    }
-
-    public String getGitLabRepository() {
-        return gitLabRepository;
-    }
-
-    public String getDefaultBranch() {
-        return defaultBranch;
-    }
-
-    // GITLAB -- MAPS GETTERS
-    public String getMapsRootFolder() {
-        return mapsRootFolder;
-    }
-
-    public List<String> getMapCategories() {
-        return mapCategories;
-    }
-
-    // UPLOAD GETTERS
-    public int getMaxUploadSize() {
-        return maxUploadSize;
-    }
-
-    public List<String> getIgnoredFiles() {
-        return ignoredFiles;
     }
 
     // VALIDATORS

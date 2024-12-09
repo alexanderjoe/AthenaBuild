@@ -1,6 +1,8 @@
 package dev.alexanderdiaz.athenabuild.command;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
+import dev.alexanderdiaz.athenabuild.Permissions;
+import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
 import kong.unirest.HttpResponse;
 import kong.unirest.JsonNode;
 import kong.unirest.Unirest;
@@ -8,80 +10,86 @@ import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.apache.commons.lang.RandomStringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
-import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.incendo.cloud.annotations.Argument;
 import org.incendo.cloud.annotations.Command;
 import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
+import org.incendo.cloud.annotations.suggestion.Suggestions;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Collections;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-public final class DownloadMap {
+public final class DownloadCommand {
     private final AthenaBuild plugin;
 
-    public DownloadMap() {
-        this.plugin = AthenaBuild.getInstance();
+    public DownloadCommand(AthenaBuild plugin) {
+        this.plugin = plugin;
     }
 
-    @Command("download <mapName>")
-    @CommandDescription("Download a map from the server")
-    @Permission("athenabuild.download")
-    public void downloadMap(
-            CommandSender sender,
-            @Argument("mapName") String mapName) {
-
+    @Command("download [world]")
+    @CommandDescription("Creates a download URL for a world by compressing and uploading the world.")
+    @Permission(Permissions.DOWNLOAD)
+    public void downloadWorld(
+            final CommandSender sender,
+            @Argument(value = "world", suggestions = "worldNames") String worldName) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("§cOnly players can download maps.");
+            sender.sendMessage("§cOnly players can download worlds.");
             return;
         }
 
         Player player = (Player) sender;
-        World world = Bukkit.getWorld(mapName);
+        if (worldName == null) {
+            worldName = player.getWorld().getName();
+        }
+        WorldWrapper worldWrapper = new WorldWrapper(plugin, worldName);
 
-        if (world == null) {
-            player.sendMessage("§cWorld not found.");
+        if (!worldWrapper.exists()) {
+            player.sendMessage("§cWorld with name §e§l" + worldName + "§r§c not found.");
             return;
         }
 
+        String fileWorldName = worldName + "-" + RandomStringUtils.randomAlphanumeric(6);
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 player.sendMessage("§aStarting world download process...");
 
                 // Create temporary zip file
-                File tempZip = new File(plugin.getDataFolder(), mapName + ".zip");
+                File tempZip = new File(plugin.getDataFolder(), fileWorldName + ".zip");
                 tempZip.getParentFile().mkdirs();
 
                 // Zip the world folder
                 player.sendMessage("§aCompressing world folder...");
-                zipWorld(world.getWorldFolder(), tempZip);
+                zipWorld(worldWrapper.getWorldDirectory(), tempZip);
 
                 // Upload to file.io
                 player.sendMessage("§aUploading to file.io...");
                 String downloadUrl = uploadToFileIo(tempZip);
 
-                // Clean up
                 tempZip.delete();
 
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    player.playSound(player.getLocation(), Sound.NOTE_PIANO, 1, 1);
-                    sendDownloadMessage(player, downloadUrl);
-                });
-
+                player.playSound(player.getLocation(), Sound.LEVEL_UP, 1, 1);
+                sendDownloadMessage(player, downloadUrl);
             } catch (Exception e) {
                 player.sendMessage("§cError while processing world download: " + e.getMessage());
                 plugin.getLogger().log(Level.SEVERE, "Error while processing world download", e);
             }
         });
+    }
+
+    @Suggestions("worldNames")
+    public List<String> suggestWorlds() {
+        return plugin.athenaWorlds(true);
     }
 
     private void sendDownloadMessage(Player player, String downloadUrl) {

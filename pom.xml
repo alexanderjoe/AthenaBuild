@@ -6,7 +6,7 @@
 
   <groupId>dev.alexanderdiaz</groupId>
   <artifactId>AthenaBuild</artifactId>
-  <version>1.0.2-SNAPSHOT</version>
+  <version>1.0.3-SNAPSHOT</version>
   <description>Useful commands for a build server.</description>
   <packaging>jar</packaging>
 
@@ -88,6 +88,16 @@
       <groupId>com.konghq</groupId>
       <artifactId>unirest-java</artifactId>
       <version>3.14.1</version>
+    </dependency>
+    <dependency>
+      <groupId>net.kyori</groupId>
+      <artifactId>adventure-platform-bukkit</artifactId>
+      <version>4.3.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.34</version>
     </dependency>
   </dependencies>
 </project>
