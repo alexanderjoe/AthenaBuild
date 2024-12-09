@@ -6,11 +6,9 @@
 
   <groupId>dev.alexanderdiaz</groupId>
   <artifactId>AthenaBuild</artifactId>
-  <version>1.0.3-SNAPSHOT</version>
+  <version>1.0.4-SNAPSHOT</version>
   <description>Useful commands for a build server.</description>
   <packaging>jar</packaging>
-
-  <name></name>
 
   <properties>
     <java.version>1.8</java.version>
@@ -32,6 +30,35 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.2.4</version>
+        <configuration>
+          <minimizeJar>true</minimizeJar>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+                <exclude>META-INF/DEPENDENCIES</exclude>
+                <exclude>META-INF/LICENSE*</exclude>
+                <exclude>META-INF/NOTICE*</exclude>
+                <exclude>META-INF/MANIFEST.MF</exclude>
+                <exclude>LICENSE*</exclude>
+                <exclude>NOTICE*</exclude>
+              </excludes>
+            </filter>
+          </filters>
+          <relocations>
+            <relocation>
+              <pattern>org.incendo</pattern>
+              <shadedPattern>dev.alexanderdiaz.athenabuild.lib.cloud</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>net.kyori</pattern>
+              <shadedPattern>dev.alexanderdiaz.athenabuild.lib.adventure</shadedPattern>
+            </relocation>
+          </relocations>
+        </configuration>
         <executions>
           <execution>
             <phase>package</phase>
@@ -68,36 +95,37 @@
       <groupId>org.incendo</groupId>
       <artifactId>cloud-core</artifactId>
       <version>2.0.0</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.incendo</groupId>
       <artifactId>cloud-annotations</artifactId>
       <version>2.0.0</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.incendo</groupId>
       <artifactId>cloud-paper</artifactId>
       <version>2.0.0-beta.10</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.incendo</groupId>
       <artifactId>cloud-minecraft-extras</artifactId>
       <version>2.0.0-beta.10</version>
-    </dependency>
-    <dependency>
-      <groupId>com.konghq</groupId>
-      <artifactId>unirest-java</artifactId>
-      <version>3.14.1</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>net.kyori</groupId>
       <artifactId>adventure-platform-bukkit</artifactId>
       <version>4.3.4</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <version>1.18.34</version>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
 </project>

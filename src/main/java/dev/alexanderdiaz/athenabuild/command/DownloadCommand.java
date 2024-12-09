@@ -3,14 +3,10 @@ package dev.alexanderdiaz.athenabuild.command;
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.Permissions;
 import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
-import kong.unirest.HttpResponse;
-import kong.unirest.JsonNode;
-import kong.unirest.Unirest;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
-import org.apache.commons.lang.RandomStringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
@@ -21,11 +17,14 @@ import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
 import org.incendo.cloud.annotations.suggestion.Suggestions;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -59,7 +58,7 @@ public final class DownloadCommand {
             return;
         }
 
-        String fileWorldName = worldName + "-" + RandomStringUtils.randomAlphanumeric(6);
+        String fileWorldName = worldName + "-" + UUID.randomUUID().toString().substring(0, 6);
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 player.sendMessage("§aStarting world download process...");
@@ -143,16 +142,51 @@ public final class DownloadCommand {
     }
 
     private String uploadToFileIo(File file) throws IOException {
-        HttpResponse<JsonNode> response = Unirest.post("https://file.io")
-                .field("file", file)
-                .asJson();
+        String boundary = "---------------------------" + System.currentTimeMillis();
+        URL url = new URL("https://file.io");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
 
-        if (!response.isSuccess()) {
-            throw new IOException("Upload failed with status: " + response.getStatus());
+        try (OutputStream output = connection.getOutputStream();
+             PrintWriter writer = new PrintWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8), true)) {
+
+            writer.append("--").append(boundary).append("\r\n");
+            writer.append("Content-Disposition: form-data; name=\"file\"; filename=\"").append(file.getName()).append("\"\r\n");
+            writer.append("Content-Type: application/octet-stream\r\n\r\n");
+            writer.flush();
+
+            try (FileInputStream input = new FileInputStream(file)) {
+                byte[] buffer = new byte[4096];
+                int length;
+                while ((length = input.read(buffer)) > 0) {
+                    output.write(buffer, 0, length);
+                }
+                output.flush();
+            }
+
+            writer.append("\r\n");
+            writer.append("--").append(boundary).append("--\r\n");
         }
 
-        return response.getBody()
-                .getObject()
-                .getString("link");
+        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+            throw new IOException("Upload failed with status: " + connection.getResponseCode());
+        }
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+
+            // Parse the JSON response to get the link
+            // Simple parsing since we only need one field
+            String jsonResponse = response.toString();
+            int linkStart = jsonResponse.indexOf("\"link\":\"") + 8;
+            int linkEnd = jsonResponse.indexOf("\"", linkStart);
+            return jsonResponse.substring(linkStart, linkEnd);
+        }
     }
 }

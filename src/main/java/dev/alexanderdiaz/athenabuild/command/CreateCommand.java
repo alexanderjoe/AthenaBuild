@@ -72,6 +72,7 @@ public class CreateCommand {
         ));
 
         message.addExtra(commandComponent);
+        message.addExtra("\n");
         message.addExtra("§8§l" + String.join("", Collections.nCopies(40, "-")));
 
         player.spigot().sendMessage(message);

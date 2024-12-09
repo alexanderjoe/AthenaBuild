@@ -5,7 +5,6 @@ import dev.alexanderdiaz.athenabuild.Permissions;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
 import dev.alexanderdiaz.athenabuild.service.MapSuggestionService;
 import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
-import kong.unirest.Unirest;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -23,10 +22,11 @@ import org.incendo.cloud.annotations.Permission;
 import org.incendo.cloud.annotations.suggestion.Suggestions;
 import org.incendo.cloud.context.CommandContext;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -150,15 +150,12 @@ public final class UploadCommand {
         ));
 
         message.addExtra(commandComponent);
+        message.addExtra("\n");
         message.addExtra("§8§l" + String.join("", Collections.nCopies(40, "-")));
 
         player.spigot().sendMessage(message);
     }
 
-    /**
-     * Sanitizes a map name to create a valid world name.
-     * Converts spaces and special characters to underscores and removes invalid characters.
-     */
     private String sanitizeWorldName(String mapName) {
         String sanitized = mapName.toLowerCase();
 
@@ -190,17 +187,53 @@ public final class UploadCommand {
 
     private byte[] downloadFromGitLab(String folderPath) throws Exception {
         // URL encode the folderPath and project path
-        String encodedPath = folderPath.replace(" ", "%20").replace("/", "%2F");
-        String projectPath = (config.getGitLabOrganization() + "/" + config.getGitLabRepository())
-                .replace("/", "%2F");
+        String encodedPath = URLEncoder.encode(folderPath, StandardCharsets.UTF_8.toString());
+        String projectPath = URLEncoder.encode(
+                config.getGitLabOrganization() + "/" + config.getGitLabRepository(),
+                StandardCharsets.UTF_8.toString());
 
         String downloadUrl = String.format("%s/projects/%s/repository/archive.zip?sha=%s&path=%s",
                 config.getGitlabApiUrl(), projectPath, config.getDefaultBranch(), encodedPath);
 
-        return Unirest.get(downloadUrl)
-                .header("PRIVATE-TOKEN", config.getGitlabToken())
-                .asBytes()
-                .getBody();
+        URL url = new URL(downloadUrl);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("PRIVATE-TOKEN", config.getGitlabToken());
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("User-Agent", "AthenaBuild");
+
+        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+            // Log more details about the error
+            String errorMessage = "";
+            try (InputStream errorStream = connection.getErrorStream()) {
+                if (errorStream != null) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(errorStream, StandardCharsets.UTF_8))) {
+                        StringBuilder response = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            response.append(line);
+                        }
+                        errorMessage = response.toString();
+                    }
+                }
+            }
+            throw new IOException(String.format("Failed to download archive: %d - %s. Response: %s",
+                    connection.getResponseCode(),
+                    connection.getResponseMessage(),
+                    errorMessage));
+        }
+
+        // Read the response into a byte array
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            try (InputStream inputStream = connection.getInputStream()) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                }
+            }
+            return outputStream.toByteArray();
+        }
     }
 
     private void extractArchive(byte[] archiveData, File targetDir) throws IOException {
@@ -247,7 +280,7 @@ public final class UploadCommand {
                 }
 
                 try (FileOutputStream fos = new FileOutputStream(newFile)) {
-                    byte[] buffer = new byte[1024];
+                    byte[] buffer = new byte[4096];
                     int len;
                     while ((len = zis.read(buffer)) > 0) {
                         fos.write(buffer, 0, len);

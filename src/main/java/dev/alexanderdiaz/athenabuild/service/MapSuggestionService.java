@@ -2,11 +2,16 @@ package dev.alexanderdiaz.athenabuild.service;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
-import kong.unirest.HttpResponse;
-import kong.unirest.Unirest;
-import kong.unirest.json.JSONArray;
-import kong.unirest.json.JSONObject;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
@@ -49,18 +54,15 @@ public class MapSuggestionService {
                     encodedProjectPath);
 
             // Get project details
-            HttpResponse<String> projectResponse = Unirest.get(projectUrl)
-                    .header("PRIVATE-TOKEN", config.getGitlabToken())
-                    .header("Accept", "application/json")
-                    .asString();
-
-            if (!projectResponse.isSuccess()) {
+            String projectResponse = fetchFromGitlab(projectUrl);
+            if (projectResponse.isEmpty()) {
                 return Collections.emptyList();
             }
 
             // Parse the project JSON
-            JSONObject projectJson = new JSONObject(projectResponse.getBody());
-            int projectId = projectJson.getInt("id");
+            JSONParser parser = new JSONParser();
+            JSONObject projectJson = (JSONObject) parser.parse(projectResponse);
+            long projectId = (Long) projectJson.get("id");
 
             // Get repository tree
             String treeUrl = String.format("%s/projects/%d/repository/tree",
@@ -68,25 +70,18 @@ public class MapSuggestionService {
                     projectId);
 
             // Get tree with query parameters
-            HttpResponse<String> treeResponse = Unirest.get(treeUrl)
-                    .header("PRIVATE-TOKEN", config.getGitlabToken())
-                    .header("Accept", "application/json")
-                    .queryString("path", category)
-                    .queryString("ref", config.getDefaultBranch())
-                    .queryString("per_page", 100)
-                    .asString();
+            String encodedCategory = category.replace(" ", "%20");
+            treeUrl += String.format("?path=%s&ref=%s&per_page=100",
+                    encodedCategory,
+                    config.getDefaultBranch());
 
-            if (!treeResponse.isSuccess()) {
-                return Collections.emptyList();
-            }
-
-            String treeBody = treeResponse.getBody();
-            if (treeBody == null || treeBody.trim().isEmpty()) {
+            String treeResponse = fetchFromGitlab(treeUrl);
+            if (treeResponse.isEmpty()) {
                 return Collections.emptyList();
             }
 
             // Parse the tree JSON and get directories
-            List<String> maps = parseTreeResponse(treeBody);
+            List<String> maps = parseTreeResponse(treeResponse);
 
             // Cache the results
             categoryMapCache.put(category, maps);
@@ -101,21 +96,49 @@ public class MapSuggestionService {
         }
     }
 
-    private List<String> parseTreeResponse(String treeBody) {
-        JSONArray items = new JSONArray(treeBody);
-        List<String> maps = new ArrayList<>();
+    private String fetchFromGitlab(String urlString) throws IOException {
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("PRIVATE-TOKEN", config.getGitlabToken());
+        connection.setRequestProperty("Accept", "application/json");
 
-        for (int i = 0; i < items.length(); i++) {
-            JSONObject item = items.getJSONObject(i);
-            String type = item.getString("type");
-            String name = item.getString("name");
-
-            if ("tree".equals(type)) {
-                maps.add(name);
-            }
+        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+            return "";
         }
 
-        return maps;
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            return response.toString();
+        }
+    }
+
+    private List<String> parseTreeResponse(String treeBody) {
+        try {
+            JSONParser parser = new JSONParser();
+            JSONArray items = (JSONArray) parser.parse(treeBody);
+            List<String> maps = new ArrayList<>();
+
+            for (Object item : items) {
+                JSONObject entry = (JSONObject) item;
+                String type = (String) entry.get("type");
+                String name = (String) entry.get("name");
+
+                if ("tree".equals(type)) {
+                    maps.add(name);
+                }
+            }
+
+            return maps;
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Failed to parse tree response: " + e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
     private List<String> filterSuggestions(List<String> maps, String currentInput) {

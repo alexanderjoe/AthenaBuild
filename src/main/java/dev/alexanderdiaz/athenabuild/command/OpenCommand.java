@@ -15,8 +15,6 @@ import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
 import org.incendo.cloud.annotations.suggestion.Suggestions;
 
-import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 
 public class OpenCommand {
