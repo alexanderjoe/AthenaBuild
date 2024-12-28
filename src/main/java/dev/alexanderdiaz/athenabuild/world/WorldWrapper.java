@@ -107,7 +107,8 @@ public class WorldWrapper {
             }
 
             // Create and load world using direct path
-            WorldCreator creator = new WorldCreator(worldDirectory.toPath().toString());
+            WorldCreator creator = new WorldCreator(worldDirectory.toPath().toString())
+                    .generator(new NullChunkGenerator());
             this.world = creator.createWorld();
 
             if (world == null) {
