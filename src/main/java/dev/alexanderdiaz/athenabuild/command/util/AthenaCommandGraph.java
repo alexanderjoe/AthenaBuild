@@ -32,6 +32,7 @@ public class AthenaCommandGraph extends CommandGraph<AthenaBuild> {
         register(new CreateCommand(plugin));
         register(new OpenCommand(plugin));
         register(new CloseCommand(plugin));
+        register(new DeleteCommand(plugin));
     }
 
     @Override

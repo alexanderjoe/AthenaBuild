@@ -8,4 +8,5 @@ public interface Permissions {
     String DOWNLOAD = ROOT + ".download";
     String OPEN = ROOT + ".open";
     String CLOSE = ROOT + ".close";
+    String DELETE = ROOT + ".delete";
 }
