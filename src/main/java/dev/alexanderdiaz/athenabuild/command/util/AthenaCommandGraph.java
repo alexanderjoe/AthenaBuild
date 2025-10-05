@@ -1,7 +1,12 @@
 package dev.alexanderdiaz.athenabuild.command.util;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
-import dev.alexanderdiaz.athenabuild.command.*;
+import dev.alexanderdiaz.athenabuild.command.CloseCommand;
+import dev.alexanderdiaz.athenabuild.command.CreateCommand;
+import dev.alexanderdiaz.athenabuild.command.DeleteCommand;
+import dev.alexanderdiaz.athenabuild.command.DownloadCommand;
+import dev.alexanderdiaz.athenabuild.command.OpenCommand;
+import dev.alexanderdiaz.athenabuild.command.UploadCommand;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bukkit.command.CommandSender;
 import org.incendo.cloud.minecraft.extras.MinecraftHelp;

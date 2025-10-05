@@ -1,18 +1,18 @@
 # AthenaBuild Configuration
 
-# GitLab Configuration
-gitlab:
-  # Your GitLab personal access token or project access token
-  # Required scopes: api, read_repository
+# GitHub Configuration
+github:
+  # Your GitHub personal access token (classic) or fine-grained token
+  # Required scopes: repo (or contents:read for fine-grained)
   token: ""
 
-  # GitLab API URL (change if using self-hosted GitLab)
-  api_url: "https://gitlab.com/api/v4"
+  # GitHub API URL (change if using GitHub Enterprise)
+  api_url: "https://api.github.com"
 
   # Repository settings
   organization: "your_org"
-  repository: "your/repo"
-  default_branch: "master"
+  repository: "your_repo"
+  default_branch: "main"
 
   # Maps structure
   maps:

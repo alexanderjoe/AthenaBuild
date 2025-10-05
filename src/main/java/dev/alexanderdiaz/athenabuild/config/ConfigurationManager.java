@@ -11,18 +11,18 @@ public class ConfigurationManager {
     private final AthenaBuild plugin;
     private FileConfiguration config;
 
-    // GITLAB CONFIG
+    // GITHUB CONFIG
     @Getter
-    private String gitlabToken;
+    private String githubToken;
     @Getter
-    private String gitlabApiUrl;
+    private String githubApiUrl;
     @Getter
-    private String gitLabOrganization;
+    private String githubOrganization;
     @Getter
-    private String gitLabRepository;
+    private String githubRepository;
     @Getter
     private String defaultBranch;
-    // GITLAB -- MAPS CONFIG
+    // GITHUB -- MAPS CONFIG
     @Getter
     private String mapsRootFolder;
     @Getter
@@ -45,18 +45,18 @@ public class ConfigurationManager {
         plugin.reloadConfig();
         this.config = plugin.getConfig();
 
-        loadGitLabConfig();
+        loadGitHubConfig();
         loadUploadConfig();
     }
 
-    private void loadGitLabConfig() {
-        this.gitlabToken = config.getString("gitlab.token", "");
-        this.gitlabApiUrl = config.getString("gitlab.api_url", "https://gitlab.com/api/v4");
-        this.gitLabOrganization = config.getString("gitlab.organization", "");
-        this.gitLabRepository = config.getString("gitlab.repository", "");
-        this.defaultBranch = config.getString("gitlab.default_branch", "master");
-        this.mapsRootFolder = config.getString("gitlab.maps.root_folder", "");
-        this.mapCategories = config.getStringList("gitlab.maps.categories");
+    private void loadGitHubConfig() {
+        this.githubToken = config.getString("github.token", "");
+        this.githubApiUrl = config.getString("github.api_url", "https://api.github.com");
+        this.githubOrganization = config.getString("github.organization", "");
+        this.githubRepository = config.getString("github.repository", "");
+        this.defaultBranch = config.getString("github.default_branch", "main");
+        this.mapsRootFolder = config.getString("github.maps.root_folder", "");
+        this.mapCategories = config.getStringList("github.maps.categories");
 
         // Add default categories if none configured
         if (mapCategories.isEmpty()) {
@@ -79,11 +79,11 @@ public class ConfigurationManager {
         return mapCategories.contains(category);
     }
 
-    public boolean hasGitLabDefaults() {
-        return !gitLabOrganization.isEmpty() && !gitLabRepository.isEmpty();
+    public boolean hasGitHubDefaults() {
+        return !githubOrganization.isEmpty() && !githubRepository.isEmpty();
     }
 
-    public boolean isGitLabConfigured() {
-        return !gitlabToken.isEmpty();
+    public boolean isGitHubConfigured() {
+        return !githubToken.isEmpty();
     }
 }

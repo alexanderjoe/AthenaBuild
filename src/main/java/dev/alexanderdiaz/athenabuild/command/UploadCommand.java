@@ -21,18 +21,22 @@ import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
 import org.incendo.cloud.annotations.suggestion.Suggestions;
 import org.incendo.cloud.context.CommandContext;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 public final class UploadCommand {
     private final AthenaBuild plugin;
@@ -46,11 +50,11 @@ public final class UploadCommand {
     }
 
     @Command("upload <category> <mapName>")
-    @CommandDescription("Upload a map to the server from the configure GitLab repository.")
+    @CommandDescription("Upload a map to the server from the configured GitHub repository.")
     @Permission(Permissions.UPLOAD)
     public void uploadMap(
             final CommandSender sender,
-            final @Argument(value = "category", suggestions = "categories", description = "The category of the map in the GitLab repository.") String category,
+            final @Argument(value = "category", suggestions = "categories", description = "The category of the map in the GitHub repository.") String category,
             final @Argument(value = "mapName", suggestions = "mapNames", description = "The exact name of the map to import.") @Greedy String mapName) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cOnly players can upload maps.");
@@ -59,8 +63,8 @@ public final class UploadCommand {
 
         Player player = (Player) sender;
 
-        if (!config.isGitLabConfigured()) {
-            player.sendMessage("§cGitLab is not configured. Please contact an administrator.");
+        if (!config.isGitHubConfigured()) {
+            player.sendMessage("§cGitHub is not configured. Please contact an administrator.");
             return;
         }
 
@@ -90,19 +94,14 @@ public final class UploadCommand {
                 player.sendMessage("§7World Name: " + worldName);
                 player.sendMessage("§7Path: " + folderPath);
 
-                // Download archive from GitLab
-                player.sendMessage("§aDownloading from GitLab...");
-                byte[] archiveData = downloadFromGitLab(folderPath);
-
-                // Create temporary directory for extraction
+                // Download folder from GitHub
+                player.sendMessage("§aDownloading from GitHub...");
                 File tempDir = new File(plugin.getDataFolder(), "temp/" + worldName);
                 if (!tempDir.exists()) {
                     tempDir.mkdirs();
                 }
 
-                // Extract archive
-                player.sendMessage("§aExtracting world files...");
-                extractArchive(archiveData, tempDir);
+                downloadFolderFromGitHub(folderPath, tempDir);
 
                 // Load world on main thread
                 Bukkit.getScheduler().runTask(plugin, () -> {
@@ -185,25 +184,61 @@ public final class UploadCommand {
         return basePath + category + "/" + mapName;
     }
 
-    private byte[] downloadFromGitLab(String folderPath) throws Exception {
-        // URL encode the folderPath and project path
-        String encodedPath = URLEncoder.encode(folderPath, StandardCharsets.UTF_8.toString());
-        String projectPath = URLEncoder.encode(
-                config.getGitLabOrganization() + "/" + config.getGitLabRepository(),
-                StandardCharsets.UTF_8.toString());
+    private void downloadFolderFromGitHub(String folderPath, File targetDir) throws Exception {
+        // Use GitHub Contents API to recursively download folder contents
+        String contentsUrl = String.format("%s/repos/%s/%s/contents/%s?ref=%s",
+                config.getGithubApiUrl(),
+                config.getGithubOrganization(),
+                config.getGithubRepository(),
+                folderPath,
+                config.getDefaultBranch());
 
-        String downloadUrl = String.format("%s/projects/%s/repository/archive.zip?sha=%s&path=%s",
-                config.getGitlabApiUrl(), projectPath, config.getDefaultBranch(), encodedPath);
+        downloadFolderRecursive(contentsUrl, targetDir, "");
+    }
 
-        URL url = new URL(downloadUrl);
+    private void downloadFolderRecursive(String contentsUrl, File targetDir, String relativePath) throws Exception {
+        String response = fetchFromGitHub(contentsUrl);
+
+        JSONParser parser = new JSONParser();
+        JSONArray items = (JSONArray) parser.parse(response);
+
+        for (Object item : items) {
+            JSONObject entry = (JSONObject) item;
+            String type = (String) entry.get("type");
+            String name = (String) entry.get("name");
+
+            // Skip ignored files
+            if (shouldIgnoreFile(name)) {
+                continue;
+            }
+
+            if ("dir".equals(type)) {
+                // Recursively download subdirectory
+                String subUrl = (String) entry.get("url");
+                File subDir = new File(targetDir, relativePath.isEmpty() ? name : relativePath + "/" + name);
+                if (!subDir.exists()) {
+                    subDir.mkdirs();
+                }
+                downloadFolderRecursive(subUrl, targetDir, relativePath.isEmpty() ? name : relativePath + "/" + name);
+            } else if ("file".equals(type)) {
+                // Download file
+                String downloadUrl = (String) entry.get("download_url");
+                File targetFile = new File(targetDir, relativePath.isEmpty() ? name : relativePath + "/" + name);
+                downloadFile(downloadUrl, targetFile);
+            }
+        }
+    }
+
+    private String fetchFromGitHub(String urlString) throws Exception {
+        URL url = new URL(urlString);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");
-        connection.setRequestProperty("PRIVATE-TOKEN", config.getGitlabToken());
-        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("Authorization", "Bearer " + config.getGithubToken());
+        connection.setRequestProperty("Accept", "application/vnd.github+json");
+        connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
         connection.setRequestProperty("User-Agent", "AthenaBuild");
 
         if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-            // Log more details about the error
             String errorMessage = "";
             try (InputStream errorStream = connection.getErrorStream()) {
                 if (errorStream != null) {
@@ -217,78 +252,49 @@ public final class UploadCommand {
                     }
                 }
             }
-            throw new IOException(String.format("Failed to download archive: %d - %s. Response: %s",
+            throw new IOException(String.format("Failed to fetch from GitHub: %d - %s. Response: %s",
                     connection.getResponseCode(),
                     connection.getResponseMessage(),
                     errorMessage));
         }
 
-        // Read the response into a byte array
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            try (InputStream inputStream = connection.getInputStream()) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                }
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
             }
-            return outputStream.toByteArray();
+            return response.toString();
         }
     }
 
-    private void extractArchive(byte[] archiveData, File targetDir) throws IOException {
-        try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(archiveData))) {
-            ZipEntry entry;
-            String rootFolder = null;
+    private void downloadFile(String downloadUrl, File targetFile) throws IOException {
+        URL url = new URL(downloadUrl);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        // Raw content doesn't need authentication for public repos, but we'll add it for private repos
+        connection.setRequestProperty("Authorization", "Bearer " + config.getGithubToken());
+        connection.setRequestProperty("User-Agent", "AthenaBuild");
 
-            while ((entry = zis.getNextEntry()) != null) {
-                String fileName = entry.getName();
+        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+            throw new IOException("Failed to download file: " + downloadUrl + " - Status: " + connection.getResponseCode());
+        }
 
-                // Find the root folder name from the first entry
-                if (rootFolder == null && fileName.contains("/")) {
-                    rootFolder = fileName.substring(0, fileName.indexOf("/"));
-                }
+        File parent = targetFile.getParentFile();
+        if (!parent.exists()) {
+            parent.mkdirs();
+        }
 
-                // Skip if it's a directory or ignored file
-                if (entry.isDirectory() || shouldIgnoreFile(fileName)) {
-                    continue;
-                }
-
-                // Remove the root folder and get relative path
-                if (fileName.startsWith(rootFolder + "/")) {
-                    fileName = fileName.substring(rootFolder.length() + 1);
-                }
-
-                // Skip files not in the map folder
-                if (!fileName.contains("/")) {
-                    continue;
-                }
-
-                // Get just the world files by removing category/mapname prefix
-                String[] parts = fileName.split("/");
-                if (parts.length > 2) {
-                    fileName = String.join("/", Arrays.copyOfRange(parts, 2, parts.length));
-                } else {
-                    continue;
-                }
-
-                // Create and extract the file
-                File newFile = new File(targetDir, fileName);
-                File parent = newFile.getParentFile();
-                if (!parent.exists()) {
-                    parent.mkdirs();
-                }
-
-                try (FileOutputStream fos = new FileOutputStream(newFile)) {
-                    byte[] buffer = new byte[4096];
-                    int len;
-                    while ((len = zis.read(buffer)) > 0) {
-                        fos.write(buffer, 0, len);
-                    }
-                }
+        try (InputStream inputStream = connection.getInputStream();
+             FileOutputStream outputStream = new FileOutputStream(targetFile)) {
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
             }
         }
     }
+
 
     private boolean shouldIgnoreFile(String fileName) {
         for (String ignoredFile : config.getIgnoredFiles()) {

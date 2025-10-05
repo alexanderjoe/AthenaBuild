@@ -12,7 +12,11 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -43,39 +47,19 @@ public class MapSuggestionService {
                 return filterSuggestions(categoryMapCache.get(category), currentInput);
             }
 
-            // Get project info
-            String projectPath = String.format("%s/%s",
-                    config.getGitLabOrganization(),
-                    config.getGitLabRepository());
+            // Build the path to the category folder
+            String rootFolder = config.getMapsRootFolder();
+            String path = rootFolder.isEmpty() ? category : rootFolder + "/" + category;
 
-            String encodedProjectPath = projectPath.replace("/", "%2F");
-            String projectUrl = String.format("%s/projects/%s",
-                    config.getGitlabApiUrl(),
-                    encodedProjectPath);
-
-            // Get project details
-            String projectResponse = fetchFromGitlab(projectUrl);
-            if (projectResponse.isEmpty()) {
-                return Collections.emptyList();
-            }
-
-            // Parse the project JSON
-            JSONParser parser = new JSONParser();
-            JSONObject projectJson = (JSONObject) parser.parse(projectResponse);
-            long projectId = (Long) projectJson.get("id");
-
-            // Get repository tree
-            String treeUrl = String.format("%s/projects/%d/repository/tree",
-                    config.getGitlabApiUrl(),
-                    projectId);
-
-            // Get tree with query parameters
-            String encodedCategory = category.replace(" ", "%20");
-            treeUrl += String.format("?path=%s&ref=%s&per_page=100",
-                    encodedCategory,
+            // GitHub API URL format: /repos/{owner}/{repo}/contents/{path}
+            String treeUrl = String.format("%s/repos/%s/%s/contents/%s?ref=%s",
+                    config.getGithubApiUrl(),
+                    config.getGithubOrganization(),
+                    config.getGithubRepository(),
+                    path,
                     config.getDefaultBranch());
 
-            String treeResponse = fetchFromGitlab(treeUrl);
+            String treeResponse = fetchFromGitHub(treeUrl);
             if (treeResponse.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -96,12 +80,14 @@ public class MapSuggestionService {
         }
     }
 
-    private String fetchFromGitlab(String urlString) throws IOException {
+    private String fetchFromGitHub(String urlString) throws IOException {
         URL url = new URL(urlString);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");
-        connection.setRequestProperty("PRIVATE-TOKEN", config.getGitlabToken());
-        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("Authorization", "Bearer " + config.getGithubToken());
+        connection.setRequestProperty("Accept", "application/vnd.github+json");
+        connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
+        connection.setRequestProperty("User-Agent", "AthenaBuild");
 
         if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
             return "";
@@ -129,7 +115,8 @@ public class MapSuggestionService {
                 String type = (String) entry.get("type");
                 String name = (String) entry.get("name");
 
-                if ("tree".equals(type)) {
+                // GitHub uses "dir" for directories instead of "tree"
+                if ("dir".equals(type)) {
                     maps.add(name);
                 }
             }
