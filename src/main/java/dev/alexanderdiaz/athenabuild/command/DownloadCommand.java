@@ -16,6 +16,7 @@ import org.incendo.cloud.annotations.Command;
 import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
 import org.incendo.cloud.annotations.suggestion.Suggestions;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -23,11 +24,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
@@ -78,9 +76,9 @@ public final class DownloadCommand {
                 player.sendMessage("§aCompressing world folder...");
                 zipWorld(worldWrapper.getWorldDirectory(), tempZip);
 
-                // Upload to file.io
-                player.sendMessage("§aUploading to file.io...");
-                String downloadUrl = uploadToFileIo(tempZip);
+                // Upload
+                player.sendMessage("§aUploading to transfer.alexanderdiaz.zip...");
+                String downloadUrl = uploadToTransferSh(tempZip);
 
                 tempZip.delete();
 
@@ -117,7 +115,7 @@ public final class DownloadCommand {
         ));
 
         message.addExtra(downloadComponent);
-        message.addExtra("\n\n§7§oThis link expires in 14 days or after one download\n");
+        message.addExtra("\n\n§7§oThis link expires after one download or 7 days\n");
         message.addExtra("§8§l" + String.join("", Collections.nCopies(40, "-")));
 
         player.spigot().sendMessage(message);
@@ -148,37 +146,23 @@ public final class DownloadCommand {
         }
     }
 
-    private String uploadToFileIo(File file) throws IOException {
-        String boundary = "---------------------------" + System.currentTimeMillis();
-        URL url = new URL("https://file.io");
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("POST");
-        connection.setDoOutput(true);
-        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+    private String uploadToTransferSh(File file) throws IOException {
+        HttpURLConnection connection = getHttpURLConnection(file);
 
-        try (OutputStream output = connection.getOutputStream();
-             PrintWriter writer = new PrintWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8), true)) {
+        int responseCode = connection.getResponseCode();
 
-            writer.append("--").append(boundary).append("\r\n");
-            writer.append("Content-Disposition: form-data; name=\"file\"; filename=\"").append(file.getName()).append("\"\r\n");
-            writer.append("Content-Type: application/octet-stream\r\n\r\n");
-            writer.flush();
-
-            try (FileInputStream input = new FileInputStream(file)) {
-                byte[] buffer = new byte[4096];
-                int length;
-                while ((length = input.read(buffer)) > 0) {
-                    output.write(buffer, 0, length);
+        if (responseCode != HttpURLConnection.HTTP_OK) {
+            // Try to read error response
+            try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(connection.getErrorStream()))) {
+                StringBuilder errorResponse = new StringBuilder();
+                String line;
+                while ((line = errorReader.readLine()) != null) {
+                    errorResponse.append(line);
                 }
-                output.flush();
+                throw new IOException("Upload failed with status: " + responseCode + ", response: " + errorResponse.toString());
+            } catch (Exception e) {
+                throw new IOException("Upload failed with status: " + responseCode);
             }
-
-            writer.append("\r\n");
-            writer.append("--").append(boundary).append("--\r\n");
-        }
-
-        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-            throw new IOException("Upload failed with status: " + connection.getResponseCode());
         }
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
@@ -188,12 +172,31 @@ public final class DownloadCommand {
                 response.append(line);
             }
 
-            // Parse the JSON response to get the link
-            // Simple parsing since we only need one field
-            String jsonResponse = response.toString();
-            int linkStart = jsonResponse.indexOf("\"link\":\"") + 8;
-            int linkEnd = jsonResponse.indexOf("\"", linkStart);
-            return jsonResponse.substring(linkStart, linkEnd);
+            String responseText = response.toString().trim();
+            if (responseText.isEmpty() || !responseText.startsWith("http")) {
+                throw new IOException("Invalid response from transfer.alexanderdiaz.zip: " + responseText);
+            }
+            return responseText;
         }
+    }
+
+    private static @NotNull HttpURLConnection getHttpURLConnection(File file) throws IOException {
+        URL url = new URL("https://transfer.alexanderdiaz.zip/" + file.getName());
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("PUT");
+        connection.setDoOutput(true);
+        connection.setRequestProperty("Content-Type", "application/octet-stream");
+        connection.setRequestProperty("Max-Downloads", "1");
+        connection.setRequestProperty("Max-Days", "7");
+
+        try (OutputStream output = connection.getOutputStream();
+             FileInputStream input = new FileInputStream(file)) {
+            byte[] buffer = new byte[8192];
+            int length;
+            while ((length = input.read(buffer)) > 0) {
+                output.write(buffer, 0, length);
+            }
+        }
+        return connection;
     }
 }
