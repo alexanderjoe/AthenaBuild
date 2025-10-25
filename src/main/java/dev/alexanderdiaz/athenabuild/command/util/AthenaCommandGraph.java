@@ -7,6 +7,7 @@ import dev.alexanderdiaz.athenabuild.command.DeleteCommand;
 import dev.alexanderdiaz.athenabuild.command.DownloadCommand;
 import dev.alexanderdiaz.athenabuild.command.OpenCommand;
 import dev.alexanderdiaz.athenabuild.command.UploadCommand;
+import dev.alexanderdiaz.athenabuild.command.WorldCommands;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bukkit.command.CommandSender;
 import org.incendo.cloud.minecraft.extras.MinecraftHelp;
@@ -38,6 +39,7 @@ public class AthenaCommandGraph extends CommandGraph<AthenaBuild> {
         register(new OpenCommand(plugin));
         register(new CloseCommand(plugin));
         register(new DeleteCommand(plugin));
+        register(new WorldCommands(plugin));
     }
 
     @Override

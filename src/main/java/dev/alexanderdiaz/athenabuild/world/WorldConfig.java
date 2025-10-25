@@ -1,13 +1,12 @@
 package dev.alexanderdiaz.athenabuild.world;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.configuration.file.YamlConfiguration;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.logging.Level;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 public class WorldConfig {
     private final AthenaBuild plugin;

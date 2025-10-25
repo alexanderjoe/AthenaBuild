@@ -3,6 +3,8 @@ package dev.alexanderdiaz.athenabuild.command;
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.Permissions;
 import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
+import java.util.ArrayList;
+import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.World;
@@ -13,9 +15,6 @@ import org.incendo.cloud.annotations.Command;
 import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
 import org.incendo.cloud.annotations.suggestion.Suggestions;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class CloseCommand {
     private final AthenaBuild plugin;

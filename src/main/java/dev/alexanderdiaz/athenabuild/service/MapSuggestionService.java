@@ -2,10 +2,6 @@ package dev.alexanderdiaz.athenabuild.service;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -19,6 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
 public class MapSuggestionService {
     private final AthenaBuild plugin;

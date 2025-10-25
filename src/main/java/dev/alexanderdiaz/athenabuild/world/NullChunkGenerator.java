@@ -1,9 +1,8 @@
 package dev.alexanderdiaz.athenabuild.world;
 
+import java.util.Random;
 import org.bukkit.World;
 import org.bukkit.generator.ChunkGenerator;
-
-import java.util.Random;
 
 @SuppressWarnings("deprecation")
 public class NullChunkGenerator extends ChunkGenerator {

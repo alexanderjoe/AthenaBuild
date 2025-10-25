@@ -3,6 +3,7 @@ package dev.alexanderdiaz.athenabuild.command;
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.Permissions;
 import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
+import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Sound;
@@ -14,8 +15,7 @@ import org.incendo.cloud.annotations.Command;
 import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
 import org.incendo.cloud.annotations.suggestion.Suggestions;
-
-import java.util.List;
+import org.incendo.cloud.context.CommandContext;
 
 public class OpenCommand {
     private final AthenaBuild plugin;
@@ -64,7 +64,10 @@ public class OpenCommand {
     }
 
     @Suggestions("availableWorlds")
-    public List<String> suggestWorlds() {
-        return plugin.athenaWorlds(false);
+    public List<String> suggestWorlds(CommandContext<CommandSender> context) {
+        String input = context.rawInput().lastRemainingToken().toLowerCase();
+        return plugin.athenaWorlds(false).stream().filter(world -> {
+            return world.toLowerCase().startsWith(input);
+        }).toList();
     }
 }

@@ -5,6 +5,22 @@ import dev.alexanderdiaz.athenabuild.Permissions;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
 import dev.alexanderdiaz.athenabuild.service.MapSuggestionService;
 import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Collections;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -25,19 +41,6 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.List;
-import java.util.logging.Level;
-
 public final class UploadCommand {
     private final AthenaBuild plugin;
     private final ConfigurationManager config;
@@ -49,7 +52,7 @@ public final class UploadCommand {
         this.mapSuggestionService = new MapSuggestionService(plugin);
     }
 
-    @Command("upload <category> <mapName>")
+    @Command("upload git <category> <mapName>")
     @CommandDescription("Upload a map to the server from the configured GitHub repository.")
     @Permission(Permissions.UPLOAD)
     public void uploadMap(
@@ -123,6 +126,111 @@ public final class UploadCommand {
             } catch (Exception e) {
                 player.sendMessage("§cError while processing world upload: " + e.getMessage());
                 plugin.getLogger().log(Level.SEVERE, ChatColor.RED + "Error while processing world upload", e);
+            }
+        });
+    }
+
+    @Command("upload url <world_name> <url>")
+    @CommandDescription("Upload a map to the server from a URL.")
+    @Permission(Permissions.UPLOAD)
+    public void uploadMapFromUrl(
+            final CommandSender sender,
+            final @Argument(value = "world_name", description = "The name for the imported world to be created as.") String worldName,
+            final @Argument(value = "url", description = "The URL of the map to import.") @Greedy String url
+    ) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cOnly players can upload maps.");
+            return;
+        }
+
+        if (WorldWrapper.alreadyExists(worldName)) {
+            sender.sendMessage("§cA world with the name §e" + worldName + " §calready exists. Choose a different name.");
+            return;
+        }
+
+        // Validate URL
+        try {
+            new URL(url);
+        } catch (MalformedURLException e) {
+            player.sendMessage("§cInvalid URL: " + e.getMessage());
+            return;
+        }
+
+        // Sanitize the world name for Bukkit
+        String sanitizedWorldName = sanitizeWorldName(worldName);
+        WorldWrapper worldWrapper = new WorldWrapper(plugin, sanitizedWorldName);
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            File tempZip = null;
+            File tempDir = null;
+            try {
+                player.sendMessage("§aStarting world upload from URL...");
+                player.sendMessage("§7World Name: " + sanitizedWorldName);
+                player.sendMessage("§7URL: " + url);
+
+                // Download ZIP file
+                player.sendMessage("§aDownloading ZIP file...");
+                tempZip = new File(plugin.getDataFolder(), "temp/" + sanitizedWorldName + ".zip");
+                tempZip.getParentFile().mkdirs();
+                downloadFile(url, tempZip);
+
+                // Extract ZIP to temporary directory
+                player.sendMessage("§aExtracting world files...");
+                tempDir = new File(plugin.getDataFolder(), "temp/" + sanitizedWorldName);
+                if (!tempDir.exists()) {
+                    tempDir.mkdirs();
+                }
+                unzipFile(tempZip, tempDir);
+
+                // Validate world files
+                player.sendMessage("§aValidating world files...");
+                File worldRoot = findWorldRoot(tempDir);
+                if (worldRoot == null) {
+                    player.sendMessage("§cInvalid world! The ZIP must contain a valid Minecraft world with level.dat");
+                    return;
+                }
+
+                // Clean up world-specific files before importing
+                player.sendMessage("§aCleaning up world files...");
+                cleanUpWorldFiles(worldRoot);
+
+                // Load world on main thread
+                File finalTempDir = tempDir;
+                File finalTempZip = tempZip;
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    try {
+                        if (worldWrapper.importWorld(worldRoot)) {
+                            player.playSound(player.getLocation(), Sound.LEVEL_UP, 1, 1f);
+                            sendImportMessage(player, sanitizedWorldName);
+                            worldWrapper.prepareImportedWorld();
+                        } else {
+                            player.sendMessage("§cFailed to load world after upload!");
+                        }
+                    } catch (Exception e) {
+                        player.sendMessage("§cError loading world: " + e.getMessage());
+                        plugin.getLogger().log(Level.SEVERE, ChatColor.RED + "Error loading world", e);
+                    } finally {
+                        // Clean up temp files
+                        if (finalTempZip != null && finalTempZip.exists()) {
+                            finalTempZip.delete();
+                        }
+                        if (finalTempDir != null && finalTempDir.exists()) {
+                            deleteDirectory(finalTempDir);
+                        }
+                    }
+                });
+
+            } catch (Exception e) {
+                player.sendMessage("§cError while processing world upload: " + e.getMessage());
+                plugin.getLogger().log(Level.SEVERE, ChatColor.RED + "Error while processing world upload from URL", e);
+
+                // Clean up temp files on error
+                if (tempZip != null && tempZip.exists()) {
+                    tempZip.delete();
+                }
+                if (tempDir != null && tempDir.exists()) {
+                    deleteDirectory(tempDir);
+                }
             }
         });
     }
@@ -317,5 +425,144 @@ public final class UploadCommand {
             }
         }
         directory.delete();
+    }
+
+    /**
+     * Unzips a file to the specified destination directory
+     *
+     * @param zipFile The ZIP file to extract
+     * @param destDir The destination directory
+     * @throws IOException If an I/O error occurs
+     */
+    private void unzipFile(File zipFile, File destDir) throws IOException {
+        byte[] buffer = new byte[4096];
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile.toPath()))) {
+            ZipEntry zipEntry = zis.getNextEntry();
+            while (zipEntry != null) {
+                File newFile = newFile(destDir, zipEntry);
+
+                // Create parent directories
+                if (zipEntry.isDirectory()) {
+                    if (!newFile.isDirectory() && !newFile.mkdirs()) {
+                        throw new IOException("Failed to create directory " + newFile);
+                    }
+                } else {
+                    // Create parent directory if it doesn't exist
+                    File parent = newFile.getParentFile();
+                    if (!parent.isDirectory() && !parent.mkdirs()) {
+                        throw new IOException("Failed to create directory " + parent);
+                    }
+
+                    // Write file
+                    try (FileOutputStream fos = new FileOutputStream(newFile)) {
+                        int len;
+                        while ((len = zis.read(buffer)) > 0) {
+                            fos.write(buffer, 0, len);
+                        }
+                    }
+                }
+                zipEntry = zis.getNextEntry();
+            }
+            zis.closeEntry();
+        }
+    }
+
+    /**
+     * Prevents Zip Slip vulnerability by validating the file path
+     *
+     * @param destinationDir The destination directory
+     * @param zipEntry       The ZIP entry
+     * @return The validated file
+     * @throws IOException If the file path is invalid (Zip Slip attempt)
+     */
+    private File newFile(File destinationDir, ZipEntry zipEntry) throws IOException {
+        File destFile = new File(destinationDir, zipEntry.getName());
+
+        String destDirPath = destinationDir.getCanonicalPath();
+        String destFilePath = destFile.getCanonicalPath();
+
+        if (!destFilePath.startsWith(destDirPath + File.separator)) {
+            throw new IOException("Entry is outside of the target dir: " + zipEntry.getName());
+        }
+
+        return destFile;
+    }
+
+    /**
+     * Finds the root directory containing level.dat in the extracted files.
+     * The world might be nested in subdirectories within the ZIP.
+     *
+     * @param directory The directory to search
+     * @return The directory containing level.dat, or null if not found
+     */
+    private File findWorldRoot(File directory) {
+        // Check if current directory contains level.dat
+        File levelDat = new File(directory, "level.dat");
+        if (levelDat.exists() && levelDat.isFile()) {
+            return directory;
+        }
+
+        // Search subdirectories (up to 3 levels deep to avoid infinite search)
+        return findWorldRootRecursive(directory, 0, 3);
+    }
+
+    private File findWorldRootRecursive(File directory, int currentDepth, int maxDepth) {
+        if (currentDepth > maxDepth) {
+            return null;
+        }
+
+        File[] files = directory.listFiles();
+        if (files == null) {
+            return null;
+        }
+
+        for (File file : files) {
+            if (file.isDirectory()) {
+                File levelDat = new File(file, "level.dat");
+                if (levelDat.exists() && levelDat.isFile()) {
+                    return file;
+                }
+
+                // Recursively search subdirectory
+                File result = findWorldRootRecursive(file, currentDepth + 1, maxDepth);
+                if (result != null) {
+                    return result;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Cleans up world-specific files that should be deleted before importing a world from an external source.
+     * This includes:
+     * - uid.dat: Unique world identifier that should be regenerated
+     * - athena.yml: Plugin-specific configuration that should be reset
+     * - data folder: Contains world-specific data (player stats, structures, etc.)
+     *
+     * @param worldRoot The root directory of the world
+     */
+    private void cleanUpWorldFiles(File worldRoot) {
+        // Delete uid.dat
+        File uidDat = new File(worldRoot, "uid.dat");
+        if (uidDat.exists() && uidDat.isFile()) {
+            uidDat.delete();
+            plugin.getLogger().info("Deleted uid.dat from imported world");
+        }
+
+        // Delete athena.yml if present
+        File athenaYml = new File(worldRoot, "athena.yml");
+        if (athenaYml.exists() && athenaYml.isFile()) {
+            athenaYml.delete();
+            plugin.getLogger().info("Deleted athena.yml from imported world");
+        }
+
+        // Delete data folder
+        File dataFolder = new File(worldRoot, "data");
+        if (dataFolder.exists() && dataFolder.isDirectory()) {
+            deleteDirectory(dataFolder);
+            plugin.getLogger().info("Deleted data folder from imported world");
+        }
     }
 }

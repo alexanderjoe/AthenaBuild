@@ -1,6 +1,10 @@
 package dev.alexanderdiaz.athenabuild.command.util;
 
 import io.leangen.geantyref.TypeToken;
+import java.lang.reflect.Type;
+import java.util.Locale;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.Plugin;
 import org.incendo.cloud.CommandManager;
@@ -14,11 +18,6 @@ import org.incendo.cloud.parser.ArgumentParser;
 import org.incendo.cloud.parser.ParserRegistry;
 import org.incendo.cloud.setting.ManagerSetting;
 import org.incendo.cloud.suggestion.FilteringSuggestionProcessor;
-
-import java.lang.reflect.Type;
-import java.util.Locale;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 public abstract class CommandGraph<P extends Plugin> {
     protected P plugin;

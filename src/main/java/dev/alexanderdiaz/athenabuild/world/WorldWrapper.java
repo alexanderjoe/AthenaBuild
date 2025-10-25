@@ -1,6 +1,12 @@
 package dev.alexanderdiaz.athenabuild.world;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.logging.Level;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -9,15 +15,8 @@ import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.util.Vector;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.logging.Level;
-
 public class WorldWrapper {
-    private static final String WORLDS_DIRECTORY = "athena_worlds";
+    public static final String WORLDS_DIRECTORY = "athena_worlds";
 
     private final AthenaBuild plugin;
     @Getter
@@ -35,6 +34,10 @@ public class WorldWrapper {
         this.worldDirectory = new File(Bukkit.getWorldContainer().getParentFile(), WORLDS_DIRECTORY + File.separator + worldName);
         this.config = new WorldConfig(worldDirectory);
         this.world = Bukkit.getWorld(worldDirectory.toPath().toString());
+    }
+
+    public static boolean alreadyExists(String worldName) {
+        return new File(Bukkit.getWorldContainer().getParentFile(), WORLDS_DIRECTORY + File.separator + worldName).exists();
     }
 
     /**
@@ -209,6 +212,22 @@ public class WorldWrapper {
         return world.getSpawnLocation();
     }
 
+    public boolean setSpawnLocation(Location location) {
+        if (!isLoaded()) {
+            loadWorld();
+        }
+
+        if (world == null) {
+            plugin.getLogger().log(Level.WARNING, "World is not loaded!");
+            return false;
+        }
+
+        config.setSpawnLocation(location);
+        world.setSpawnLocation(location.getBlockX(), location.getBlockY(), location.getBlockZ());
+        world.save();
+        return true;
+    }
+
     private void initializeWorld() {
         if (!isLoaded()) {
             return;
@@ -234,6 +253,20 @@ public class WorldWrapper {
 
         // Save spawn location to config
         config.setSpawnLocation(world.getSpawnLocation());
+    }
+
+    public void prepareImportedWorld() {
+        if (!isLoaded()) {
+            loadWorld();
+        }
+
+        world.setGameRuleValue("doMobSpawning", "false");
+        world.setGameRuleValue("mobGriefing", "false");
+        world.setTime(6000);
+        world.setStorm(false);
+        world.setThundering(false);
+        world.setAutoSave(true);
+        world.save();
     }
 
     private void copyDirectory(Path source, Path target) throws IOException {

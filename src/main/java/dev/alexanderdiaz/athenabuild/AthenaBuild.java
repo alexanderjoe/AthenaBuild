@@ -4,15 +4,14 @@ import dev.alexanderdiaz.athenabuild.command.util.AthenaCommandGraph;
 import dev.alexanderdiaz.athenabuild.config.ConfigurationManager;
 import dev.alexanderdiaz.athenabuild.listener.PlayerListener;
 import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
-import lombok.Getter;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.java.JavaPlugin;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
+import lombok.Getter;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.PluginManager;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public final class AthenaBuild extends JavaPlugin {
     @Getter

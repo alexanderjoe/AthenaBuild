@@ -3,10 +3,11 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 plugins {
     id("java")
     id("com.gradleup.shadow") version "9.2.2"
+    id("com.diffplug.spotless") version "7.2.1"
 }
 
 group = "dev.alexanderdiaz"
-version = "1.0.7"
+version = "1.0.8"
 description = "AthenaBuild"
 
 repositories {
@@ -44,6 +45,18 @@ tasks.named<ShadowJar>("shadowJar") {
     exclude("OSGI-INF/")
     exclude("**/*.html")
     exclude("javax/**")
+
+    relocate("org.incendo.cloud", "dev.alexanderdiaz.athenabuild.lib.cloud")
+    relocate("net.kyori", "dev.alexanderdiaz.athenabuild.lib.kyori")
+}
+
+spotless {
+    java {
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        importOrder()
+        cleanthat()
+    }
 }
 
 tasks.withType<JavaCompile> {

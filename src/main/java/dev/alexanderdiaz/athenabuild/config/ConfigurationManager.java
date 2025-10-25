@@ -1,11 +1,10 @@
 package dev.alexanderdiaz.athenabuild.config;
 
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
-import lombok.Getter;
-import org.bukkit.configuration.file.FileConfiguration;
-
 import java.util.Arrays;
 import java.util.List;
+import lombok.Getter;
+import org.bukkit.configuration.file.FileConfiguration;
 
 public class ConfigurationManager {
     private final AthenaBuild plugin;

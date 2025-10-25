@@ -3,6 +3,7 @@ package dev.alexanderdiaz.athenabuild.command;
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.Permissions;
 import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
+import java.util.Collections;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -14,8 +15,6 @@ import org.incendo.cloud.annotations.Argument;
 import org.incendo.cloud.annotations.Command;
 import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
-
-import java.util.Collections;
 
 public class CreateCommand {
     private final AthenaBuild plugin;

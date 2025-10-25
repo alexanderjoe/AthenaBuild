@@ -3,6 +3,9 @@ package dev.alexanderdiaz.athenabuild.command;
 import dev.alexanderdiaz.athenabuild.AthenaBuild;
 import dev.alexanderdiaz.athenabuild.Permissions;
 import dev.alexanderdiaz.athenabuild.world.WorldWrapper;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.conversations.Conversation;
@@ -17,10 +20,6 @@ import org.incendo.cloud.annotations.CommandDescription;
 import org.incendo.cloud.annotations.Permission;
 import org.incendo.cloud.annotations.suggestion.Suggestions;
 import org.incendo.cloud.context.CommandContext;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class DeleteCommand {
     private final AthenaBuild plugin;
